@@ -227,19 +227,19 @@ module.exports = function(robot) {
 	//	vrla: /* optional number of vrlas */
 	// }
 	function getPortalBuildString(build) {
-		var str = 'P' + Math.floor(build.level) + ' (' + build.resos + ')';
-			if (build.la) {
-				str += ' and ' + pluralize(build.la, 'la');
-			}
-				if (build.ula) {
-					str += ' and ' + pluralize(build.ula, 'ula');
-				}
-					if (build.vrla) {
-						str += ' and ' + pluralize(build.vrla, 'vrla');
-					}
-		else if (build.vrla) {
-				str += ' with ' + pluralize(build.vrla, 'vrla');
-			}
+		var str = 'P' + Math.floor(build.level) + ' (' + build.resos + ')',
+			conjunction = ' with ';
+		if (build.la) {
+			str += conjunction + pluralize(build.la, 'la');
+			conjunction = ' and ';
+		}
+		if (build.ula) {
+			str += conjunction + pluralize(build.ula, 'ula');
+			conjunction = ' and ';
+		}
+		if (build.vrla) {
+			str += conjunction + pluralize(build.vrla, 'vrla');
+		}
 		return str;
 	}
 
