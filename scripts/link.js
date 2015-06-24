@@ -424,7 +424,7 @@ module.exports = function(robot) {
 	});
 
 	// Responds to requests to calculate portal distance for a portal build
-	robot.respond(/link\s+(\d+)(.*)/, function(msg) {
+	robot.respond(/link\s+(\d+)(.*)/i, function(msg) {
 		var distance, // link range
 			la, // number of link amps
 			level, // portal level
