@@ -1,24 +1,24 @@
 // Description:
-//   Provides details about portal linkability
+//	 Provides details about portal linkability
 //
 // Dependencies:
-//   None
+//	 None
 //
 // Configuration:
-//   None
+//	 None
 //
 // Commands:
-//   link help
-//   link [intel link] [intel link]
-//   link [intel link] [intel link] [intel link]
-//   link [intel draw link or field]
-//   link 87665544
-//   link 88877766 2 la
-//   link 88888888 2 la 1 vrla
+//	 hubot link help
+//	 hubot link [intel link] [intel link]
+//	 hubot link [intel link] [intel link] [intel link]
+//	 hubot link [intel draw link or field]
+//	 hubot link 87665544
+//	 hubot link 88877766 2 la
+//	 hubot link 88887777 2 ula 2 la
+//	 hubot link 88888888 2 la 1 vrla
 //
 // Author:
-//   snotrocket
-
+//	 snotrocket
 // Copyright (C) 2015  J Daniel Lewis
 //
 // This program is free software; you can redistribute it and/or
@@ -34,14 +34,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-
 /* global module*/
 module.exports = function(robot) {
 
 	// Generates the linkability info message for a given distance (in meters)
 	function buildLinkabilityMessage(distance) {
-		var build,  // anchor build
-			message = '';  // message string
+		var build, // anchor build
+			message = ''; // message string
 		build = getPortalBuild(distance);
 		if (!build) {
 			return null;
@@ -56,9 +55,9 @@ module.exports = function(robot) {
 	// Given a msg object and 3 portals, calculates and sends the link info
 	// Optional ll and z parameters allow custom latlng and zoom levels for draw links
 	function calculatePortalLinkInfo(msg, p1, p2, p3, ll, z) {
-		var distance,  // distance between portals
-			message = '',  // message string
-			str;  // temporary message string
+		var distance, // distance between portals
+			message = '', // message string
+			str; // temporary message string
 
 		p1.name = 'Portal A';
 		p2.name = 'Portal B';
@@ -136,7 +135,8 @@ module.exports = function(robot) {
 	// ll: optional lat lng query parameter
 	// z: optional zoom level query parameter
 	function getDrawLink(portals, ll, z) {
-		var a = [], p1, p2, url;
+		var a = [],
+			p1, p2, url;
 		if (!ll) {
 			ll = portals[0].lat + ',' + portals[0].lng;
 		}
@@ -158,21 +158,23 @@ module.exports = function(robot) {
 	// Calculates agents needed to create a link of a given distance (in meters)
 	// Returns an object with details about the anchor:
 	// {
-	// 	agents: /* number of agents */
-	// 	level: /* portal level */
-	// 	resos: /* string of resos */
-	// 	la: /* number of link amps */
-	// 	vrla: /* number of vrlas */
+	//	agents: /* number of agents */
+	//	level: /* portal level */
+	//	resos: /* string of resos */
+	//	la: /* number of link amps */
+	//	ula: /* number of ulas */
+	//	vrla: /* number of vrlas */
 	// }
 	// Returns null if it's unlinkable.
 	function getPortalBuild(distance) {
-		var agents,  // number of agents required
-			config,  // portal build configurations
-			la,  // number of link amps
-			level,  // portal level
-			range,  // distance a portal can link
-			resos,  // resos string
-			vrla;  // number of very rare link amps
+		var agents, // number of agents required
+			config, // portal build configurations
+			la, // number of link amps
+			level, // portal level
+			range, // distance a portal can link
+			resos, // resos string
+			ula, // number of ultra link amps
+			vrla; // number of very rare link amps
 		// build configuration, keyed by number of agents required
 		// yes, we could hard code distances here, but this seems more maintainable
 		config = {
@@ -186,48 +188,57 @@ module.exports = function(robot) {
 			8: '88888888'
 		};
 		// calculate portal build
-		//  - prefer link amps over more agents
-		//  - prefer more agents over very rare link amps
+		//	- prefer link amps over more agents
+		//	- prefer more agents over very rare link amps
 		for (vrla = 0; vrla <= 4; ++vrla) {
 			for (agents = 1; agents <= 8; ++agents) {
-				for (la = 0; la <= 4; ++la) {
-					if (vrla + la <= 4) {
-						resos = config[agents];
-						level = getPortalLevelFromResos(resos);
-						range = portalRange(level, la, vrla);
-						if (range >= distance) {
-							return {
-								agents: agents,
-								level: level,
-								resos: resos,
-								la: la,
-								vrla: vrla
-							};
+				for (ula = 0; ula <= 4; ++ula) {
+					for (la = 0; la <= 4; ++la) {
+						if (vrla + ula + la <= 4) {
+							resos = config[agents];
+							level = getPortalLevelFromResos(resos);
+							range = portalRange(level, la, ula, vrla);
+							if (range >= distance) {
+								return {
+									agents: agents,
+									level: level,
+									resos: resos,
+									la: la,
+									ula: ula,
+									vrla: vrla
+								};
+							}
 						}
 					}
 				}
 			}
 		}
+
 		// too far
 		return null;
 	}
 
 	// Returns a portal build string for a given portal build:
 	// {
-	// 	level: /* portal level */
-	// 	resos: /* string of resos */
-	// 	la: /* optional number of link amps */
-	// 	vrla: /* optional number of vrlas */
+	//	level: /* portal level */
+	//	resos: /* string of resos */
+	//	la: /* optional number of link amps */
+	//	ula: /* optional number of ulas */
+	//	vrla: /* optional number of vrlas */
 	// }
 	function getPortalBuildString(build) {
-		var str = 'P' + Math.floor(build.level) + ' (' + build.resos + ')';
+		var str = 'P' + Math.floor(build.level) + ' (' + build.resos + ')',
+			conjunction = ' with ';
 		if (build.la) {
-			str += ' with ' + pluralize(build.la, 'link amp');
-			if (build.vrla) {
-				str += ' and ' + pluralize(build.vrla, 'vrla');
-			}
-		} else if (build.vrla) {
-			str += ' with ' + pluralize(build.vrla, 'vrla');
+			str += conjunction + pluralize(build.la, 'la');
+			conjunction = ' and ';
+		}
+		if (build.ula) {
+			str += conjunction + pluralize(build.ula, 'ula');
+			conjunction = ' and ';
+		}
+		if (build.vrla) {
+			str += conjunction + pluralize(build.vrla, 'vrla');
 		}
 		return str;
 	}
@@ -255,7 +266,8 @@ module.exports = function(robot) {
 	// Convert a string of resonators (e.g. '88888888') to a portal level
 	// Returns the portal level
 	function getPortalLevelFromResos(resos) {
-		var sum = 0, i;
+		var sum = 0,
+			i;
 		for (i = 0; i < resos.length; ++i) {
 			sum += +resos[i];
 		}
@@ -300,22 +312,26 @@ module.exports = function(robot) {
 
 	// Calculates portal link distance in meters for a given portal level,
 	// with optional number of link amps and very rare link amps
-	function portalRange(level, la, vrla) {
-		var d = 160.0 * Math.pow(level, 4),  // base portal range
-			factors = [1, 0.25, 0.125, 0.125],  // multiplier factors
-			mods = 0,  // mods used
-			multiplier = 0;  // initial multiplier
+	function portalRange(level, la, ula, vrla) {
+		var d = 160.0 * Math.pow(level, 4), // base portal range
+			factors = [1, 0.25, 0.125, 0.125], // multiplier factors
+			mods = 0, // mods used
+			multiplier = 0; // initial multiplier
 		// convert undefined parameters to zeros
 		la = la || 0;
+		ula = ula || 0;
 		vrla = vrla || 0;
 		// sanity check
-		if (la + vrla > 4) {
+		if (la + ula + vrla > 4) {
 			// nope
 			return 0;
 		}
 		// compute link amp multiplier
 		while (vrla-- > 0) {
 			multiplier += factors[mods++] * 7;
+		}
+		while (ula-- > 0) {
+			multiplier += factors[mods++] * 5;
 		}
 		while (la-- > 0) {
 			multiplier += factors[mods++] * 2;
@@ -335,19 +351,20 @@ module.exports = function(robot) {
 	robot.respond(/link\s+help/i, function(msg) {
 		msg.send(
 			'Calculate distances between portals:\n' +
-			'   link [intel link] [intel link]\n' +
-			'   link [intel link] [intel link] [intel link]\n' +
-			'   link [intel draw link field]\n' +
+			'	link [intel link] [intel link]\n' +
+			'	link [intel link] [intel link] [intel link]\n' +
+			'	link [intel draw link field]\n' +
 			'Calculate portal ranges:\n' +
-			'   link 87665544\n' +
-			'   link 88877766 2 la\n' +
-			'   link 88888888 2 la 1 vrla'
+			'	link 87665544\n' +
+			'	link 88877766 2 la\n' +
+			'	link 88887777 2 ula\n' +
+			'	link 88888888 2 la 1 ula 1 vrla'
 		);
 	});
 
 	// Responds to portal distance requests with intel links
 	robot.respond(/link\s+https:\/\/www.ingress.com\/intel\?(\S+)\s+https:\/\/www.ingress.com\/intel\?(\S+)(\s+https:\/\/www.ingress.com\/intel\?(\S+))?/i, function(msg) {
-		var p1, p2, p3;  // portal objects
+		var p1, p2, p3; // portal objects
 		function samePortal(a, b) {
 			return (a.lat === b.lat) && (a.lng === b.lng);
 		}
@@ -365,9 +382,9 @@ module.exports = function(robot) {
 
 	// Responds to portal distance requests with a draw link
 	robot.respond(/link\s+https:\/\/www.ingress.com\/intel\?(\S+)\s*$/i, function(msg) {
-		var p1, p2, p3,  // portal objects
-			params,  // query parameters
-			portals=[];  // portal objects
+		var p1, p2, p3, // portal objects
+			params, // query parameters
+			portals = []; // portal objects
 
 		// parse 2 latlng pairs and add them to a portal list
 		function parsePortals(part) {
@@ -407,15 +424,18 @@ module.exports = function(robot) {
 	});
 
 	// Responds to requests to calculate portal distance for a portal build
-	robot.respond(/link\s+(\d+)(\s+(with|and))?(\s+([1-4])\s?(la|link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(vrla|very rare link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(la|link amp)s?)?/i, function(msg) {
-		var distance,  // link range
-			la,  // number of link amps
-			level,  // portal level
-			message,  // message string
-			resos,  // resonator string
-			vrla;  // number of very rare link amps
+	robot.respond(/link\s+(\d+)(.*)/, function(msg) {
+		var distance, // link range
+			la, // number of link amps
+			level, // portal level
+			message, // message string
+			resos, // resonator string
+			str, // input string
+			ula, // number of ultra link amps
+			vrla; // number of very rare link amps
 
 		resos = msg.match[1];
+		str = msg.match[2];
 		// sanity check
 		if (!resos.match(/^[1-8]{8}$/)) {
 			if (resos.length !== 8) {
@@ -426,20 +446,50 @@ module.exports = function(robot) {
 			msg.send('That\'s a weird portal, yo.');
 			return;
 		}
-		// a weird regex, but allows la before or after vrla
-		la = +(msg.match[5] || msg.match[15] || 0);
-		vrla = +(msg.match[10] || 0);
+
+		// parse the remainder of the request string for link amps
+		// to simplify things...
+		str = str
+			// remove with's and and's
+			.replace(/with|and/g, '')
+			// remove white space
+			.replace(/\s/g, '')
+			// convert long names to short names
+			.replace(/linkamp/g, 'la')
+			.replace(/ultra/g, 'u')
+			.replace(/veryrare/g, 'vr')
+			// and get rid of plurals
+			.replace(/las/g, 'la');
+		// ...now something that looked like " with 2 very rare link amps and 1 la and 3 ulas"
+		// should look like "2vrla1la3ula"
+
+		// helper function to get the number associated with each type of link amp
+		function getCount(type) {
+			var re = new RegExp('(\\d+)' + type, 'g'),
+				count = 0,
+				match;
+			while ((match = re.exec(str))) {
+				count += (+match[1]);
+			}
+			return count;
+		}
+
+		la = getCount('la');
+		ula = getCount('ula');
+		vrla = getCount('vrla');
+
 		// sanity check
-		if (la + vrla > 4) {
+		if (la + ula + vrla > 4) {
 			msg.send('Out of mod slots, yo.');
 			return;
 		}
 		level = getPortalLevelFromResos(resos);
-		distance = portalRange(level, la, vrla);
+		distance = portalRange(level, la, ula, vrla);
 		message = getPortalBuildString({
-			level: level, 
-			resos: resos, 
-			la: la, 
+			level: level,
+			resos: resos,
+			la: la,
+			ula: ula,
 			vrla: vrla
 		});
 		message += ' can link ' + metersToKilometers(distance) + ' km';
