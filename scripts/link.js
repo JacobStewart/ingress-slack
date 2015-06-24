@@ -158,12 +158,12 @@ module.exports = function(robot) {
     // Calculates agents needed to create a link of a given distance (in meters)
     // Returns an object with details about the anchor:
     // {
-    // 	agents: /* number of agents */
-    // 	level: /* portal level */
-    // 	resos: /* string of resos */
-    // 	la: /* number of link amps */
-    // 	ula: /* number of ulas */
-    // 	vrla: /* number of vrlas */
+    //  agents: /* number of agents */
+    //  level: /* portal level */
+    //  resos: /* string of resos */
+    //  la: /* number of link amps */
+    //  ula: /* number of ulas */
+    //  vrla: /* number of vrlas */
     // }
     // Returns null if it's unlinkable.
     function getPortalBuild(distance) {
@@ -220,11 +220,11 @@ module.exports = function(robot) {
 
     // Returns a portal build string for a given portal build:
     // {
-    // 	level: /* portal level */
-    // 	resos: /* string of resos */
-    // 	la: /* optional number of link amps */
-    // 	ula: /* optional number of ulas */
-    // 	vrla: /* optional number of vrlas */
+    //  level: /* portal level */
+    //  resos: /* string of resos */
+    //  la: /* optional number of link amps */
+    //  ula: /* optional number of ulas */
+    //  vrla: /* optional number of vrlas */
     // }
     function getPortalBuildString(build) {
         var str = 'P' + Math.floor(build.level) + ' (' + build.resos + ')';
@@ -322,7 +322,7 @@ module.exports = function(robot) {
         ula = ula || 0;
         vrla = vrla || 0;
         // sanity check
-        if (la + +ula + vrla > 4) {
+        if (la + ula + vrla > 4) {
             // nope
             return 0;
         }
@@ -424,16 +424,18 @@ module.exports = function(robot) {
     });
 
     // Responds to requests to calculate portal distance for a portal build
-    robot.respond(/link\s+(\d+)(\s+(with|and))?(\s+([1-4])\s?(la|link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(ula|ultra link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(vrla|very rare link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(ula|ultra link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(la|link amp)s?)?(\s+(with|and))?(\s+([1-4])\s?(vrla|very rare link amp)s?)?/i, function(msg) {
+    robot.respond(/link\s+(\d+)(.*)/, function(msg) {
         var distance, // link range
             la, // number of link amps
             level, // portal level
             message, // message string
             resos, // resonator string
+            str, // input string
             ula, // number of ultra link amps
             vrla; // number of very rare link amps
 
         resos = msg.match[1];
+        str = msg.match[2];
         // sanity check
         if (!resos.match(/^[1-8]{8}$/)) {
             if (resos.length !== 8) {
@@ -444,12 +446,40 @@ module.exports = function(robot) {
             msg.send('That\'s a weird portal, yo.');
             return;
         }
-        // a weird regex, but allows la before or after vrla
-        la = +(msg.match[5] || msg.match[25] || 0);
-        ula = +(msg.match[10] || msg.match[20] || 0);
-        vrla = +(msg.match[15] || msg.match[30] || 0);
+
+        // parse the remainder of the request string for link amps
+        // to simplify things...
+        str = str
+            // remove with's and and's
+            .replace(/with|and/g, '')
+            // remove white space
+            .replace(/\s/g, '')
+            // convert long names to short names
+            .replace(/linkamp/g, 'la')
+            .replace(/ultra/g, 'u')
+            .replace(/veryrare/g, 'vr')
+            // and get rid of plurals
+            .replace(/las/g, 'la');
+        // ...now something that looked like " with 2 very rare link amps and 1 la and 3 ulas"
+        // should look like "2vrla1la3ula"
+
+        // helper function to get the number associated with each type of link amp
+        function getCount(type) {
+            var re = new RegExp('(\\d+)' + type, 'g'),
+                count = 0,
+                match;
+            while ((match = re.exec(str))) {
+                count += (+match[1]);
+            }
+            return count;
+        }
+
+        la = getCount('la');
+        ula = getCount('ula');
+        vrla = getCount('vrla');
+
         // sanity check
-        if (la + + ula + vrla > 4) {
+        if (la + ula + vrla > 4) {
             msg.send('Out of mod slots, yo.');
             return;
         }
